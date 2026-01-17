@@ -39,6 +39,12 @@ const mockMessages: Message[] = [
 ];
 
 export default function Index() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authStep, setAuthStep] = useState<'phone' | 'code' | 'profile'>('phone');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [userName, setUserName] = useState('');
+  
   const [selectedChat, setSelectedChat] = useState<Chat | null>(mockChats[0]);
   const [messages, setMessages] = useState<Message[]>(mockMessages);
   const [newMessage, setNewMessage] = useState('');
@@ -58,6 +64,111 @@ export default function Index() {
       setNewMessage('');
     }
   };
+
+  const handlePhoneSubmit = () => {
+    if (phoneNumber.length >= 10) {
+      setAuthStep('code');
+    }
+  };
+
+  const handleCodeSubmit = () => {
+    if (verificationCode === '1234') {
+      setAuthStep('profile');
+    }
+  };
+
+  const handleProfileSubmit = () => {
+    if (userName.trim()) {
+      setIsAuthenticated(true);
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted">
+        <div className="w-full max-w-md p-8 space-y-6 bg-card/50 backdrop-blur-xl rounded-3xl border border-border/50 shadow-2xl">
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+              Riktim
+            </h1>
+            <p className="text-muted-foreground">Добро пожаловать!</p>
+          </div>
+
+          {authStep === 'phone' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Номер телефона</label>
+                <Input
+                  type="tel"
+                  placeholder="+7 999 123-45-67"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="bg-background/50 border-border/50 focus:border-primary/50 rounded-xl"
+                />
+              </div>
+              <Button
+                onClick={handlePhoneSubmit}
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 rounded-xl"
+              >
+                Получить код
+              </Button>
+            </div>
+          )}
+
+          {authStep === 'code' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Код подтверждения</label>
+                <p className="text-xs text-muted-foreground">Введите код из SMS (используйте 1234)</p>
+                <Input
+                  type="text"
+                  placeholder="1234"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  maxLength={4}
+                  className="bg-background/50 border-border/50 focus:border-primary/50 rounded-xl text-center text-2xl tracking-widest"
+                />
+              </div>
+              <Button
+                onClick={handleCodeSubmit}
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 rounded-xl"
+              >
+                Подтвердить
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setAuthStep('phone')}
+                className="w-full"
+              >
+                Изменить номер
+              </Button>
+            </div>
+          )}
+
+          {authStep === 'profile' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Ваше имя</label>
+                <Input
+                  type="text"
+                  placeholder="Как вас зовут?"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="bg-background/50 border-border/50 focus:border-primary/50 rounded-xl"
+                />
+              </div>
+              <Button
+                onClick={handleProfileSubmit}
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 rounded-xl"
+              >
+                Начать общение 🚀
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-background via-background to-muted overflow-hidden">
