@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Icon from '@/components/ui/icon';
 
 interface Chat {
@@ -18,9 +19,12 @@ interface Chat {
 
 interface Message {
   id: number;
-  text: string;
+  text?: string;
   time: string;
   isMine: boolean;
+  type?: 'text' | 'image' | 'file';
+  fileUrl?: string;
+  fileName?: string;
 }
 
 const mockChats: Chat[] = [
@@ -32,11 +36,38 @@ const mockChats: Chat[] = [
 ];
 
 const mockMessages: Message[] = [
-  { id: 1, text: 'Привет! Как дела?', time: '14:20', isMine: false },
-  { id: 2, text: 'Отлично! А у тебя?', time: '14:21', isMine: true },
-  { id: 3, text: 'Тоже хорошо! Хотела спросить про проект 😊', time: '14:22', isMine: false },
-  { id: 4, text: 'Конечно, спрашивай!', time: '14:22', isMine: true },
+  { id: 1, text: 'Привет! Как дела?', time: '14:20', isMine: false, type: 'text' },
+  { id: 2, text: 'Отлично! А у тебя?', time: '14:21', isMine: true, type: 'text' },
+  { id: 3, text: 'Тоже хорошо! Хотела спросить про проект 😊', time: '14:22', isMine: false, type: 'text' },
+  { id: 4, text: 'Конечно, спрашивай!', time: '14:22', isMine: true, type: 'text' },
 ];
+
+const themes = [
+  { name: 'Градиент', primary: '271 81% 56%', secondary: '326 77% 58%', accent: '199 89% 48%', bg: '220 25% 10%' },
+  { name: 'Тёмная', primary: '220 13% 18%', secondary: '220 13% 25%', accent: '217 91% 60%', bg: '220 13% 10%' },
+  { name: 'Океан', primary: '199 89% 48%', secondary: '204 94% 54%', accent: '175 84% 51%', bg: '200 50% 8%' },
+  { name: 'Закат', primary: '14 100% 57%', secondary: '340 82% 52%', accent: '45 93% 47%', bg: '20 30% 10%' },
+  { name: 'Лес', primary: '142 71% 45%', secondary: '122 39% 49%', accent: '84 81% 44%', bg: '150 20% 12%' },
+];
+
+const wallpapers = [
+  { name: 'По умолчанию', pattern: 'none' },
+  { name: 'Точки', pattern: 'radial-gradient(circle, hsl(var(--muted)) 1px, transparent 1px)' },
+  { name: 'Линии', pattern: 'repeating-linear-gradient(45deg, transparent, transparent 10px, hsl(var(--muted))/20 10px, hsl(var(--muted))/20 11px)' },
+  { name: 'Сетка', pattern: 'linear-gradient(hsl(var(--muted))/20 1px, transparent 1px), linear-gradient(90deg, hsl(var(--muted))/20 1px, transparent 1px)' },
+  { name: 'Волны', pattern: 'repeating-radial-gradient(circle at 0 0, transparent 0, hsl(var(--background)) 10px, transparent 20px, hsl(var(--muted))/10 30px)' },
+];
+
+const emojis = {
+  'Смайлики': ['😊', '😂', '🥰', '😍', '🤗', '😎', '🤔', '😴', '😭', '🥳', '😇', '🤩'],
+  'Жесты': ['👍', '👎', '👏', '🙌', '👋', '🤝', '✌️', '🤞', '💪', '🙏', '👊', '✊'],
+  'Сердца': ['❤️', '💕', '💖', '💗', '💙', '💚', '💛', '🧡', '💜', '🖤', '💝', '💘'],
+  'Природа': ['🌸', '🌺', '🌻', '🌹', '🌷', '🌴', '🌲', '🍀', '🌿', '🌾', '🌵', '🎋'],
+  'Еда': ['🍕', '🍔', '🍟', '🌭', '🍿', '🧂', '🥓', '🥚', '🧀', '🥗', '🍝', '🍜'],
+  'Животные': ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮'],
+  'Активность': ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🏓', '🏸'],
+  'Объекты': ['💻', '📱', '⌚', '📷', '🎧', '🎮', '🕹️', '🎬', '📺', '📻', '🎙️', '🎚️'],
+};
 
 export default function Index() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -49,6 +80,11 @@ export default function Index() {
   const [messages, setMessages] = useState<Message[]>(mockMessages);
   const [newMessage, setNewMessage] = useState('');
   const [showProfile, setShowProfile] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState(0);
+  const [currentWallpaper, setCurrentWallpaper] = useState(0);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sendMessage = () => {
     if (newMessage.trim()) {
@@ -59,10 +95,45 @@ export default function Index() {
           text: newMessage,
           time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
           isMine: true,
+          type: 'text',
         },
       ]);
       setNewMessage('');
+      setShowEmojiPicker(false);
     }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const fileUrl = URL.createObjectURL(file);
+      const isImage = file.type.startsWith('image/');
+      
+      setMessages([
+        ...messages,
+        {
+          id: messages.length + 1,
+          time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+          isMine: true,
+          type: isImage ? 'image' : 'file',
+          fileUrl,
+          fileName: file.name,
+        },
+      ]);
+    }
+  };
+
+  const addEmoji = (emoji: string) => {
+    setNewMessage(newMessage + emoji);
+  };
+
+  const applyTheme = (index: number) => {
+    const theme = themes[index];
+    document.documentElement.style.setProperty('--primary', theme.primary);
+    document.documentElement.style.setProperty('--secondary', theme.secondary);
+    document.documentElement.style.setProperty('--accent', theme.accent);
+    document.documentElement.style.setProperty('--background', theme.bg);
+    setCurrentTheme(index);
   };
 
   const handlePhoneSubmit = () => {
@@ -170,6 +241,13 @@ export default function Index() {
     );
   }
 
+  const wallpaperStyle = wallpapers[currentWallpaper].pattern !== 'none' 
+    ? { 
+        backgroundImage: wallpapers[currentWallpaper].pattern,
+        backgroundSize: '20px 20px'
+      }
+    : {};
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-background via-background to-muted overflow-hidden">
       <div className="w-96 border-r border-border/50 bg-card/30 backdrop-blur-xl flex flex-col">
@@ -178,14 +256,24 @@ export default function Index() {
             <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
               Riktim
             </h1>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full hover:bg-primary/20 transition-all"
-              onClick={() => setShowProfile(!showProfile)}
-            >
-              <Icon name="User" size={20} />
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full hover:bg-primary/20 transition-all"
+                onClick={() => setShowThemeSettings(!showThemeSettings)}
+              >
+                <Icon name="Palette" size={20} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full hover:bg-primary/20 transition-all"
+                onClick={() => setShowProfile(!showProfile)}
+              >
+                <Icon name="User" size={20} />
+              </Button>
+            </div>
           </div>
           <div className="relative">
             <Icon name="Search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
@@ -264,21 +352,36 @@ export default function Index() {
               </div>
             </div>
 
-            <ScrollArea className="flex-1 p-6 bg-gradient-to-b from-background/50 to-muted/20">
+            <ScrollArea className="flex-1 p-6 bg-gradient-to-b from-background/50 to-muted/20" style={wallpaperStyle}>
               <div className="space-y-4">
                 {messages.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.isMine ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-md px-4 py-3 rounded-2xl ${
+                      className={`max-w-md rounded-2xl ${
                         msg.isMine
                           ? 'bg-gradient-to-r from-primary to-secondary text-white rounded-br-sm'
                           : 'bg-card/80 backdrop-blur-sm text-foreground rounded-bl-sm shadow-lg'
                       }`}
                     >
-                      <p className="text-sm leading-relaxed">{msg.text}</p>
-                      <span className={`text-xs mt-1 block ${msg.isMine ? 'text-white/70' : 'text-muted-foreground'}`}>
-                        {msg.time}
-                      </span>
+                      {msg.type === 'image' && msg.fileUrl && (
+                        <img src={msg.fileUrl} alt="Изображение" className="rounded-t-2xl max-w-sm" />
+                      )}
+                      {msg.type === 'file' && msg.fileName && (
+                        <div className="px-4 py-3 flex items-center gap-3">
+                          <Icon name="File" size={24} />
+                          <span className="text-sm">{msg.fileName}</span>
+                        </div>
+                      )}
+                      {msg.type === 'text' && (
+                        <div className="px-4 py-3">
+                          <p className="text-sm leading-relaxed">{msg.text}</p>
+                        </div>
+                      )}
+                      <div className="px-4 pb-2">
+                        <span className={`text-xs ${msg.isMine ? 'text-white/70' : 'text-muted-foreground'}`}>
+                          {msg.time}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -287,7 +390,19 @@ export default function Index() {
 
             <div className="p-4 border-t border-border/50 bg-card/30 backdrop-blur-xl">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/20 transition-all">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.doc,.docx,.txt"
+                />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="rounded-full hover:bg-primary/20 transition-all"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Icon name="Paperclip" size={20} />
                 </Button>
                 <Input
@@ -297,9 +412,33 @@ export default function Index() {
                   placeholder="Напишите сообщение..."
                   className="flex-1 bg-background/50 border-border/50 focus:border-primary/50 rounded-xl"
                 />
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/20 transition-all">
-                  <Icon name="Smile" size={20} />
-                </Button>
+                <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/20 transition-all">
+                      <Icon name="Smile" size={20} />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-4 bg-card/95 backdrop-blur-xl border-border/50">
+                    <ScrollArea className="h-72">
+                      {Object.entries(emojis).map(([category, emojiList]) => (
+                        <div key={category} className="mb-4">
+                          <h4 className="text-xs font-medium text-muted-foreground mb-2">{category}</h4>
+                          <div className="grid grid-cols-6 gap-2">
+                            {emojiList.map((emoji, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => addEmoji(emoji)}
+                                className="text-2xl hover:bg-muted/30 rounded p-1 transition-all"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
                 <Button
                   onClick={sendMessage}
                   className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 rounded-xl transition-all"
@@ -311,6 +450,58 @@ export default function Index() {
           </>
         )}
       </div>
+
+      {showThemeSettings && (
+        <div className="w-80 border-l border-border/50 bg-card/30 backdrop-blur-xl p-6 space-y-6 animate-in slide-in-from-right">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold">Настройки</h2>
+            <Button variant="ghost" size="icon" onClick={() => setShowThemeSettings(false)}>
+              <Icon name="X" size={20} />
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium mb-3">Тема оформления</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {themes.map((theme, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => applyTheme(idx)}
+                    className={`p-3 rounded-xl border transition-all ${
+                      currentTheme === idx ? 'border-primary ring-2 ring-primary/20' : 'border-border/50 hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex gap-1 mb-2">
+                      <div className="w-4 h-4 rounded-full" style={{ background: `hsl(${theme.primary})` }} />
+                      <div className="w-4 h-4 rounded-full" style={{ background: `hsl(${theme.secondary})` }} />
+                      <div className="w-4 h-4 rounded-full" style={{ background: `hsl(${theme.accent})` }} />
+                    </div>
+                    <p className="text-xs">{theme.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium mb-3">Обои чата</h3>
+              <div className="space-y-2">
+                {wallpapers.map((wallpaper, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentWallpaper(idx)}
+                    className={`w-full p-3 rounded-xl border transition-all text-left ${
+                      currentWallpaper === idx ? 'border-primary bg-primary/10' : 'border-border/50 hover:border-primary/50'
+                    }`}
+                  >
+                    {wallpaper.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showProfile && (
         <div className="w-80 border-l border-border/50 bg-card/30 backdrop-blur-xl p-6 space-y-6 animate-in slide-in-from-right">
@@ -325,11 +516,11 @@ export default function Index() {
             <Avatar className="w-32 h-32 ring-4 ring-primary/30">
               <AvatarImage src="" />
               <AvatarFallback className="bg-gradient-to-br from-primary via-secondary to-accent text-white text-4xl">
-                В
+                {userName[0] || 'В'}
               </AvatarFallback>
             </Avatar>
             <div className="text-center">
-              <h3 className="text-xl font-semibold">Вы</h3>
+              <h3 className="text-xl font-semibold">{userName || 'Вы'}</h3>
               <p className="text-sm text-muted-foreground">+7 999 123-45-67</p>
             </div>
           </div>
